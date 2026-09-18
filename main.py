@@ -1,3 +1,4 @@
+```python
 import streamlit as st
 import subprocess
 import os
@@ -43,7 +44,7 @@ def install_sshx():
     try:
 
         print(
-            f"Downloading sshx from {SSHX_URL}",
+            f"[SSHX] Downloading: {SSHX_URL}",
             flush=True
         )
 
@@ -64,7 +65,7 @@ def install_sshx():
         )
 
         print(
-            "Extracting sshx...",
+            "[SSHX] Extracting...",
             flush=True
         )
 
@@ -77,7 +78,6 @@ def install_sshx():
                 extract_dir
             )
 
-        # پیدا کردن فایل اجرایی sshx
         found = None
 
         for p in extract_dir.rglob("sshx"):
@@ -89,13 +89,12 @@ def install_sshx():
         if found is None:
 
             print(
-                "sshx binary was not found in archive",
+                "[SSHX] Binary was not found",
                 flush=True
             )
 
             return False
 
-        # کپی به مسیر کاربر
         subprocess.run(
             [
                 "cp",
@@ -108,7 +107,7 @@ def install_sshx():
         SSHX_PATH.chmod(0o755)
 
         print(
-            f"sshx installed at {SSHX_PATH}",
+            f"[SSHX] Installed: {SSHX_PATH}",
             flush=True
         )
 
@@ -117,7 +116,7 @@ def install_sshx():
     except Exception as e:
 
         print(
-            f"SSHX installation error: {e}",
+            f"[SSHX] Installation error: {e}",
             flush=True
         )
 
@@ -157,6 +156,7 @@ def find_sshx():
             path.exists()
             and os.access(path, os.X_OK)
         ):
+
             return str(path)
 
     return None
@@ -180,30 +180,44 @@ class SSHXManager:
         self.running = False
 
 
+    # --------------------------------------------------------
+    # START SSHX
+    # --------------------------------------------------------
+
     def start(self):
 
         with self.lock:
 
-            # اگر قبلاً اجرا شده
             if self.process is not None:
 
                 if self.process.poll() is None:
+
+                    print(
+                        "[SSHX] Already running",
+                        flush=True
+                    )
+
                     return
+
 
             sshx = find_sshx()
 
-            # نصب
+
+            # ------------------------------------------------
+            # INSTALL
+            # ------------------------------------------------
+
             if not sshx:
 
                 print(
-                    "sshx not found. Installing...",
+                    "[SSHX] Not found. Installing...",
                     flush=True
                 )
 
                 if not install_sshx():
 
                     print(
-                        "Could not install sshx",
+                        "[SSHX] Installation failed",
                         flush=True
                     )
 
@@ -215,7 +229,7 @@ class SSHXManager:
             if not sshx:
 
                 print(
-                    "sshx executable still not found",
+                    "[SSHX] Executable still not found",
                     flush=True
                 )
 
@@ -223,16 +237,23 @@ class SSHXManager:
 
 
             print(
-                f"Starting sshx: {sshx}",
+                f"[SSHX] Executable: {sshx}",
                 flush=True
             )
 
+
+            # ------------------------------------------------
+            # RUN SSHX
+            # ------------------------------------------------
 
             try:
 
                 self.process = subprocess.Popen(
 
-                    [sshx],
+                    [
+                        sshx,
+                        "run"
+                    ],
 
                     stdout=subprocess.PIPE,
 
@@ -251,6 +272,17 @@ class SSHXManager:
                 self.running = True
 
 
+                print(
+                    "[SSHX] Process started",
+                    flush=True
+                )
+
+                print(
+                    "[SSHX] Waiting for public URL...",
+                    flush=True
+                )
+
+
                 self.thread = threading.Thread(
 
                     target=self.read_output,
@@ -265,10 +297,14 @@ class SSHXManager:
             except Exception as e:
 
                 print(
-                    f"SSHX start error: {e}",
+                    f"[SSHX] Start error: {e}",
                     flush=True
                 )
 
+
+    # --------------------------------------------------------
+    # READ SSHX OUTPUT
+    # --------------------------------------------------------
 
     def read_output(self):
 
@@ -290,15 +326,24 @@ class SSHXManager:
                 line = line.strip()
 
 
-                if line:
-
-                    print(
-                        f"[sshx] {line}",
-                        flush=True
-                    )
+                if not line:
+                    continue
 
 
-                # پیدا کردن URL
+                # ------------------------------------------------
+                # PRINT EVERY SSHX LINE TO STREAMLIT LOG
+                # ------------------------------------------------
+
+                print(
+                    f"[SSHX] {line}",
+                    flush=True
+                )
+
+
+                # ------------------------------------------------
+                # FIND HTTP / HTTPS URL
+                # ------------------------------------------------
+
                 urls = re.findall(
                     r'https?://[^\s]+',
                     line
@@ -317,10 +362,43 @@ class SSHXManager:
                         self.url = url
 
 
+                        # ========================================
+                        # IMPORTANT:
+                        # THIS APPEARS IN DAPPLING LOG
+                        # ========================================
+
                         print(
-                            "\n"
-                            f"SSHX PUBLIC URL: {url}"
-                            "\n",
+                            "",
+                            flush=True
+                        )
+
+                        print(
+                            "========================================",
+                            flush=True
+                        )
+
+                        print(
+                            "       SSHX PUBLIC URL",
+                            flush=True
+                        )
+
+                        print(
+                            "========================================",
+                            flush=True
+                        )
+
+                        print(
+                            url,
+                            flush=True
+                        )
+
+                        print(
+                            "========================================",
+                            flush=True
+                        )
+
+                        print(
+                            "",
                             flush=True
                         )
 
@@ -328,13 +406,17 @@ class SSHXManager:
         except Exception as e:
 
             print(
-                f"SSHX output error: {e}",
+                f"[SSHX] Output error: {e}",
                 flush=True
             )
 
 
         self.running = False
 
+
+    # ========================================================
+    # STATUS
+    # ========================================================
 
     def is_alive(self):
 
@@ -348,6 +430,10 @@ class SSHXManager:
 
         )
 
+
+    # ========================================================
+    # GET URL
+    # ========================================================
 
     def get_url(self):
 
@@ -377,7 +463,7 @@ def ensure_sshx(manager):
     if not manager.is_alive():
 
         print(
-            "SSHX is not running. Restarting...",
+            "[SSHX] Process stopped. Restarting...",
             flush=True
         )
 
@@ -385,17 +471,20 @@ def ensure_sshx(manager):
 
 
 # ============================================================
-# STREAMLIT
+# STREAMLIT UI
 # ============================================================
 
-st.title("SSHX Public SSH")
+st.title(
+    "SSHX Public SSH"
+)
 
 
 manager = get_sshx_manager()
 
 
-# اگر sshx قطع شده باشد
-ensure_sshx(manager)
+ensure_sshx(
+    manager
+)
 
 
 # ============================================================
@@ -416,7 +505,7 @@ else:
 
 
 # ============================================================
-# URL
+# PUBLIC URL
 # ============================================================
 
 url = manager.get_url()
@@ -425,12 +514,17 @@ url = manager.get_url()
 if url:
 
     st.success(
-        "Public SSH URL:"
+        "SSHX Public URL:"
     )
 
     st.code(
         url,
         language="text"
+    )
+
+    st.link_button(
+        "Open SSHX",
+        url
     )
 
 else:
@@ -464,7 +558,11 @@ if st.button(
 
     manager.url = None
 
+    manager.running = False
+
+
     manager.start()
 
 
     st.rerun()
+```
